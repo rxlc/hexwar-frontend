@@ -12,7 +12,7 @@ export default function Landing() {
   const {experience, setExperience} = useContext(ExperienceContext)
 
   useEffect(() => {
-    const newSocket = io('http://localhost:8080', {
+    const newSocket = io('https://hexwar-backend.herokuapp.com', {
       transports: ['websocket']
     });
     setSocket(newSocket)
