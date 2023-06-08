@@ -117,7 +117,7 @@ export default class World {
     }
 
     processStorm(game) {
-        if (this.gameObj.round % 6 == 0 && this.gameObj.currentDist > 6) {
+        if (this.gameObj.round % 5 == 0 && this.gameObj.currentDist > 6) {
             this.gameObj.currentDist = this.gameObj.currentDist - 1;
         }
 
