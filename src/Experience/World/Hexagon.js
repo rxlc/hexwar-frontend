@@ -6,10 +6,11 @@ import HexGrid from './HexGrid';
 
 export default class Hexagon {
     //Individual hexagon
-    constructor(pos, radius, height, terrain) {
+    constructor(pos, radius, height, terrain, distOrigin) {
         this.experience = new Experience();
         this.scene = this.experience.scene;
 
+        this.distOrigin = distOrigin;
         this.hexGrid = new HexGrid();
         this.terrains = this.hexGrid.terrains;
         this.terrainColors = this.hexGrid.terrainColors;
@@ -21,6 +22,8 @@ export default class Hexagon {
 
         this.cubePos = pos;
         this.cubePos.r = -this.cubePos.q - this.cubePos.s;
+
+        this.storm = false;
 
         this.pos = {
             x: (this.cubePos.q + this.cubePos.s/2) * this.radius * Math.sqrt(3),

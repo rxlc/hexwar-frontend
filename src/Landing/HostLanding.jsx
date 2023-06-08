@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
 import { AnimatePresence } from 'framer-motion'
 
 import { GamePinContext, GameContext, StartContext, ExperienceContext } from '../Contexts/Contexts'
@@ -15,6 +15,8 @@ export default function HostLanding() {
   const {experience, updateExperience} = useContext(ExperienceContext);
   const socket = useContext(SocketContext).socket;
 
+  const [playerCount, setPlayerCount] = useState(0);
+
   const toast = useToast();
 
   function startGame() {
@@ -22,13 +24,15 @@ export default function HostLanding() {
   }
 
   useEffect(() => {
-
+    socket.on('updateGameState', (data) => {
+      setPlayerCount(data.game.players.length)
+    })
   }, [])
 
   return (
     <Flex
       style={{width: window.innerWidth, height: window.innerHeight, position: "fixed", left: "0px", top: "0px"}}
-      flexDirection="row"
+      flexDirection="column"
       justifyContent="center"
       alignItems="center"
       position={"fixed"}
@@ -39,45 +43,62 @@ export default function HostLanding() {
     >
       <Stack
         flexDir="column"
-        mb="8%"
         justifyContent="center"
         alignItems="center"
         padding="4px"
         pointerEvents={"all"}
+        mb="2%"
       >
-        <Text fontSize={'20px'} fontWeight={"semibold"} color="teal.400">Players</Text>
-        <Stack flexDir="column" w={400} spacing={3} mt="4px" width="100%" height="200px">
-            <AnimatePresence>
-              {game.players ? game.players.slice().reverse().map((player) => {
-                return (
-                  <PlayerCard key={player.id} player={player}/>
-                )
-              }) : null}
-            </AnimatePresence>
+        <Text fontSize={'18px'} fontWeight={"bold"} color="#cb997e">Game Pin:</Text>
+        <Text fontSize={'40px'} fontWeight={"normal"} color="#ddbea9">{game.gamePin}</Text>
+      </Stack>
+      <Flex
+        flexDir="row"
+        height="70vh"
+      >
+        <Stack
+          flexDir="column"
+          mb="8%"
+          justifyContent="flex-start"
+          alignItems="center"
+          padding="4px"
+          pointerEvents={"all"}
+          bg="#f8edeb"
+          opacity={0.7}
+          borderRadius={"8px"}
+          boxShadow={"0px 0px 10px 5px rgba(0,0,0,0.2)"}
+          width="60vw"
+          mr="4%"
+        >
+          <Text fontSize={'20px'} mt="3%" fontWeight={"semibold"} color="#6d6875">Players ({playerCount})</Text>
+          <Stack flexDir="row" mt="4px" width="100%" gap="15px" height="200px" p="10px">
+              <AnimatePresence>
+                {game.players ? game.players.slice().reverse().map((player) => {
+                  return (
+                    <PlayerCard key={player.id} player={player}/>
+                  )
+                }) : null}
+              </AnimatePresence>
+          </Stack>
         </Stack>
-      </Stack>
-      <Stack
-        flexDir="column"
-        mb="8%"
-        justifyContent="center"
-        alignItems="center"
-        padding="4px"
-        pointerEvents={"all"}
-      >
-        <Text fontSize={'18px'} fontWeight={"bold"} color="teal.400">Game Pin:</Text>
-        <Text fontSize={'40px'} fontWeight={"normal"} color="teal.400">{game.gamePin}</Text>
-      </Stack>
-      <Stack
-        flexDir="column"
-        mb="8%"
-        justifyContent="center"
-        alignItems="center"
-        padding="4px"
-        pointerEvents={"all"}
-      >
-        <Text color="teal.400">Host Panel</Text>
-        <Button onClick={startGame}>Start Game</Button>
-      </Stack>
+        <Stack
+          borderRadius={"8px"}
+          flexDir="column"
+          mb="8%"
+          width="40%"
+          justifyContent="flex-start"
+          alignItems="flex-start"
+          padding="4px"
+          bg="#f8edeb"
+          opacity={0.7}
+          pointerEvents={"all"}
+          
+          boxShadow={"0px 0px 10px 5px rgba(0,0,0,0.2)"}
+        >
+          <Text fontSize={'20px'} mt="3%" fontWeight={"semibold"} color="#6d6875" justifySelf={"flex-start"} alignSelf={"center"}>Game Settings</Text>
+          <Button onClick={startGame} bg="#b5838d" color="#ffcdb2" width="100%">Start Game</Button>
+        </Stack>
+      </Flex>
     </Flex>
   )
 }

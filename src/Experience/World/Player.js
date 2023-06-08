@@ -52,7 +52,7 @@ export default class Player {
         
         var clonedGeometry = geometry.clone();
 
-        clonedGeometry.rotateY(-Math.PI / 4);
+        clonedGeometry.rotateY(0);
 
         let materials;
 
@@ -172,7 +172,7 @@ export default class Player {
         this.intersects = this.raycaster.intersectObjects(objects);
 
         if (this.intersects.length > 0) {
-            //console.log("Clicked on", this.intersects[0].object.position)
+            console.log("Clicked on", this.intersects[0].object.position)
             this.setMove()
         }
     }

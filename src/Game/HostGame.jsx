@@ -22,6 +22,9 @@ export default function HostGame() {
   const [winner, setWinner] = useState(null);
   const socket = useContext(SocketContext).socket;
 
+  const [resultsTime, setResultsTime] = useState(false);
+  const [displayEvents, updateDisplayEvents] = useState([])
+
   function initializeTurn() {
     socket.emit('nextTurn', {game: game})
   }
@@ -40,9 +43,15 @@ export default function HostGame() {
     })
 
     socket.on('sendTurnEvents', (data) => {
+      updateDisplayEvents(data.game.displayEvents)
+      
       if (experience) {
         experience.world.updateEvent(data.game);
       }
+
+      setTimeout(() => {
+        setResultsTime(true)
+      }, 3000)
     })
     
     socket.on('gameOver', (data) => {
@@ -51,7 +60,7 @@ export default function HostGame() {
     })
 
     socket.on('acknowledgeNext', (data) => {
-      if (experience) experience.world.nextTurn();
+      if (experience) experience.world.nextTurn(data.game);
       updatePlayersLeft(data.game.players.filter((player) => {
         return player.health > 0
       }).length)
@@ -81,11 +90,12 @@ export default function HostGame() {
 
   function nextTurn() {
     updateEventsDone(false);
-    
+    setResultsTime(false);
+
     let playerLeft = game.players.filter((player) => {
       return player.health > 0
     }).length
-
+    
     if (playerLeft <= 1) {
       socket.emit('gameOver', {game: game})
     } else {
@@ -106,6 +116,15 @@ export default function HostGame() {
     >
       { winner ? <Text fontSize={"30px"} userSelect={"none"} position="absolute" top="4%" fontWeight={"bold"}>{winner} has won!</Text> : null }
       
+      { eventsDone && resultsTime ? 
+      <VStack position="absolute" top="10%" left="1%" userSelect={"none"}>
+        <Text fontSize={"15px"} fontWeight={"semibold"}>Round results: </Text>
+        {displayEvents.map((event) => {
+          return <Text fontSize={"14px"} userSelect={"none"}>{event}</Text>
+        })}
+      </VStack>
+      : null }
+
       { gameOngoing ? <VStack>
         <Text fontSize={"14px"} userSelect={"none"} position="absolute" right="1%" fontWeight="bold">GAME PIN: {gamePin}</Text>
         <Text fontSize={"14px"} userSelect={"none"} position="absolute" left="1%" fontWeight="bold">PLAYERS LEFT: {playersLeft}</Text>
@@ -114,11 +133,11 @@ export default function HostGame() {
         <Text fontSize={"30px"} userSelect={"none"} fontWeight={"bold"}>{timer != 0 ?  timer : null}</Text>
       </VStack> :
       null }
-      { eventsDone ?
+      { eventsDone && resultsTime ?
         <Button onClick={nextTurn} pointerEvents={"all"} position="absolute" bottom="3%">Next Turn</Button>
       : null}
     </Flex>
-  )
+  ) 
 }
 
 /*

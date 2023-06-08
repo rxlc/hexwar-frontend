@@ -36,10 +36,10 @@ export default class World {
         this.fireVisualPath = null;
 
         this.trajectories = [];
-        this.roundFinished = false
+        this.roundFinished = false;
 
         this.eventsDoneEvent = new Event('eventsDone');
-        this.defeatedEvent = new Event('defeated')
+        this.defeatedEvent = new Event('defeated');
     }
 
     //HOST: initialize game with map and players
@@ -48,7 +48,7 @@ export default class World {
 
         this.hexGrid = new HexGrid();
         this.hexGrid.initInstance();
-        
+    
         let hexagons = this.hexGrid.hexagons;
         for (let hex in hexagons) {
             this.gameObj.map.push({cubePos: hexagons[hex].cubePos,terrain: hexagons[hex].terrain, height: hexagons[hex].height})
@@ -74,13 +74,6 @@ export default class World {
                     }
                 } 
                 
-                /*
-                if (i == 0) {  
-                    pos = {r: 1, s: 1, q: -2}
-                } else {
-                    pos = {r: 2, s: 1, q: -3}
-                }
-                */
                 this.players.push(new Player(pos, game.players[i].id, game.players[i].name));
                 this.gameObj.players[i].pos = pos;
             }
@@ -113,11 +106,43 @@ export default class World {
     processActions(game) {
         this.gameObj = JSON.parse(JSON.stringify(game));
         this.gameObj.events = [];
+        this.gameObj.displayEvents = [];
 
         this.processMoves(game);
         this.processHits(game);
 
         this.gameObj.round = this.gameObj.round + 1;
+
+        this.processStorm(game);
+    }
+
+    processStorm(game) {
+        if (this.gameObj.round % 6 == 0 && this.gameObj.currentDist > 6) {
+            this.gameObj.currentDist = this.gameObj.currentDist - 1;
+        }
+
+        for (let i=0; i<this.gameObj.players.length; i++) {
+            if (this.gameObj.players[i].health == 0) continue;
+            let player = this.gameObj.players[i];
+
+            if (this.gameObj.currentDist < Math.abs(player.pos.r)-1 || this.gameObj.currentDist < Math.abs(player.pos.q)-1 || this.gameObj.currentDist < Math.abs(player.pos.s)-1) {
+                this.gameObj.players[i].health -= 1;
+                this.gameObj.events.push({type: "storm", player: player})
+
+                if (this.gameObj.players[i].health == 0) {
+                    this.gameObj.displayEvents.push(`${player.name} was outside the zone! They are now eliminated from the game.`)
+                } else {
+                    this.gameObj.displayEvents.push(`${player.name} was outside the zone! Their health is now ${this.gameObj.players[i].health}.`)
+                }
+                
+
+                if (this.gameObj.players[i].health == 0) {
+                    this.gameObj.players[i].alive = false;
+                }
+            }
+        }
+
+
     }
 
     processMoves(game) {
@@ -137,6 +162,12 @@ export default class World {
         }
 
         for (let i=0; i<game.players.length; i++) {
+            if (game.players[i].action && !game.players[i].action.move) {
+                if (this.gameObj.players[i].landMinePercentage > 0) {
+                    this.gameObj.players[i].landMinePercentage = Math.round(this.gameObj.players[i].landMinePercentage/3)
+                }
+            }
+
             if (game.players[i].action && game.players[i].action.move) {
                 if (!moveConflictedIndex.has(i)) {
                     let alreadyThere = false;
@@ -147,11 +178,44 @@ export default class World {
                         }
                     }
 
+                    //move
                     if (!alreadyThere) this.gameObj.players[i].pos = game.players[i].action.move;
+                    
+                    let hitLM = false;
+
+                    //landmine
+                    if (Math.floor(Math.random() * 100) + 1 < this.gameObj.players[i].landMinePercentage && this.gameObj.players[i].landMinePercentage > 8) {
+                        this.gameObj.players[i].health -= 1;
+                        hitLM = true;
+                        this.gameObj.events.push({type: "landMine", player: game.players[i]})
+
+                        if (this.gameObj.players[i].health == 0) {
+                            this.gameObj.displayEvents.push(`${this.gameObj.players[i].name} encountered a landmine! They are now eliminated from the game.`)
+                        } else {
+                            this.gameObj.displayEvents.push(`${this.gameObj.players[i].name} encountered a landmine!Their health is now ${this.gameObj.players[i].health}.`)
+                        }
+                        
+                        if (this.gameObj.players[i].health == 0) {
+                            this.gameObj.players[i].alive = false;
+                        }
+                    }
+
+                    if (hitLM) {
+                        this.gameObj.players[i].landMinePercentage = 0;
+                    } else {
+                        if (game.players[i].landMinePercentage == 0) {
+                            this.gameObj.players[i].landMinePercentage = 2;
+                        } else {
+                            this.gameObj.players[i].landMinePercentage = Math.round(this.gameObj.players[i].landMinePercentage*2)
+                            if (this.gameObj.players[i].landMinePercentage > 32) {
+                                this.gameObj.players[i].landMinePercentage = 32;
+                            }
+                        }
+                    }
                 }
-                
                 this.gameObj.players[i].action = null;
             }
+            
         }
     }
 
@@ -172,7 +236,7 @@ export default class World {
 
                 /*
                 if (hexHit) {
-                    console.log(hexHit.hex.mesh.position)
+                    .log(hexHit.hex.mesh.position)
                 } else {
                     console.log("miss")
                 }
@@ -195,6 +259,14 @@ export default class World {
                 }
 
                 this.gameObj.events.push({type: "fire", player: game.players[i], position: trajParam.position, hAngle: trajParam.hAngle, vAngle: trajParam.vAngle, hit: (hexHit ? {player: (hitIndex != -1 ? game.players[hitIndex] : null), point: hexHit.point} : null)})
+                
+                if (hitIndex != -1) {
+                    if (this.gameObj.players[hitIndex].health == 0) {
+                        this.gameObj.displayEvents.push(`${game.players[hitIndex].name} was hit by ${game.players[i].name}'s projectile! They are now elimated from the game.`)
+                    } else {
+                        this.gameObj.displayEvents.push(`${game.players[hitIndex].name} was hit by ${game.players[i].name}'s projectile! Their health is now ${this.gameObj.players[hitIndex].health}.`)
+                    }
+                }
 
                 this.gameObj.players[i].action = null;
             }
@@ -207,8 +279,39 @@ export default class World {
 
         this.updateMove(game);
         this.updateFire(game);
+        this.updateStorm(game);
+    }
 
-        console.log('sync')
+    updateStorm(game) {
+        for (let hex in this.hexGrid.hexagons) {
+            if (this.hexGrid.hexagons[hex].cubePos.r > game.currentDist || this.hexGrid.hexagons[hex].cubePos.q > game.currentDist || this.hexGrid.hexagons[hex].cubePos.s > game.currentDist) {
+                this.hexGrid.hexagons[hex].mesh.material.color.setHex(0x8B0000);
+            }
+        }
+
+    }
+
+    sync(game) {
+        console.log(game)
+
+        for (let i=0; i<this.players.length; i++) {
+            let currentPlayer;
+
+            for (let j=0; j<game.players.length; j++) {
+                if (this.players[i].id == game.players[j].id) {
+                    currentPlayer = this.players[i];
+                }
+            }
+
+            let currentAlive = currentPlayer.alive
+
+            currentPlayer.health = game.players[i].health;
+            currentPlayer.alive = game.players[i].alive;
+
+            if (currentAlive != currentPlayer.alive) {
+                this.playerDied(currentPlayer.id);
+            }
+        }
     }
 
     updateMove(game) {
@@ -239,59 +342,137 @@ export default class World {
     updateFire(game) {
         this.updateTrajectory(true);
 
-        console.log(game.events);
-
         for (let i=0; i<game.events.length; i++) {
-            let fireEvent = game.events[i];
-            let firingPlayerServerRef = fireEvent.player;
-            let firingPlayerIndex = -1;
+            if (game.events[i].type == "fire") {
+                let fireEvent = game.events[i];
+                let firingPlayerServerRef = fireEvent.player;
+                let firingPlayerIndex = -1;
 
-            for (let j=0; j<this.players.length; j++) {
-                if (this.players[j].id == firingPlayerServerRef.id) {
-                    firingPlayerIndex = j;
+                for (let j=0; j<this.players.length; j++) {
+                    if (this.players[j].id == firingPlayerServerRef.id) {
+                        firingPlayerIndex = j;
+                    }
                 }
-            }
 
-            let originalY = this.players[firingPlayerIndex].mesh.position.y;
+                let originalY = this.players[firingPlayerIndex].mesh.position.y;
 
-            gsap.to(this.players[firingPlayerIndex].mesh.rotation, { duration: 0.8, y: fireEvent.hAngle * Math.PI/180, ease: "elastic", onUpdate: () => {
-                this.players[firingPlayerIndex].line.rotation.copy(this.players[firingPlayerIndex].mesh.rotation);
-            
-            },
-            onComplete: () => {
-                gsap.to(this.players[firingPlayerIndex].mesh.position, {
+                gsap.to(this.players[firingPlayerIndex].mesh.rotation, { duration: 0.8, y: -fireEvent.hAngle * Math.PI/180, ease: "elastic", onUpdate: () => {
+                    this.players[firingPlayerIndex].line.rotation.copy(this.players[firingPlayerIndex].mesh.rotation);
+                },
+                onComplete: () => {
+                    gsap.to(this.players[firingPlayerIndex].mesh.position, {
+                        duration: 0.05,
+                        y: originalY - 0.08,
+                        ease: "power2.inOut",
+                        onUpdate: () => {
+                            this.players[firingPlayerIndex].line.position.copy(this.players[firingPlayerIndex].mesh.position);
+                        },
+                        onComplete: () => {
+                            gsap.to(this.players[firingPlayerIndex].mesh.position, {
+                                duration: 0.05,
+                                y: originalY,
+                                ease: "power2.inOut",
+                                onUpdate: () => {
+                                this.players[firingPlayerIndex].line.position.copy(this.players[firingPlayerIndex].mesh.position);
+                                },
+                            });
+                        },
+                    });
+                    let playerTraj = new Trajectory(fireEvent.position, fireEvent.hAngle, fireEvent.vAngle, fireEvent.hit);
+                    playerTraj.initAnimation();
+                
+                    this.trajectories.push(playerTraj);
+                },});
+            } else if (game.events[i].type == "landMine") {
+                let lmEvent = game.events[i];
+                let lmPlayerServerRef = lmEvent.player;
+                let lmPlayerIndex = -1;
+
+                for (let j=0; j<this.players.length; j++) {
+                    if (this.players[j].id == lmPlayerServerRef.id) {
+                        lmPlayerIndex = j;
+                    }
+                }
+                
+                let originalY = this.players[lmPlayerIndex].mesh.position.y;
+
+                gsap.to(this.players[lmPlayerIndex].mesh.position, {
                     duration: 0.05,
                     y: originalY - 0.08,
                     ease: "power2.inOut",
                     onUpdate: () => {
-                        this.players[firingPlayerIndex].line.position.copy(this.players[firingPlayerIndex].mesh.position);
+                        this.players[lmPlayerIndex].line.position.copy(this.players[lmPlayerIndex].mesh.position);
                     },
                     onComplete: () => {
-                        gsap.to(this.players[firingPlayerIndex].mesh.position, {
+                        this.players[lmPlayerIndex].health -= 1;
+
+                        if (this.players[lmPlayerIndex].health <= 0) {
+                            this.playerDied(this.players[lmPlayerIndex].id)
+                        }
+
+                        gsap.to(this.players[lmPlayerIndex].mesh.position, {
                             duration: 0.05,
                             y: originalY,
                             ease: "power2.inOut",
                             onUpdate: () => {
-                              this.players[firingPlayerIndex].line.position.copy(this.players[firingPlayerIndex].mesh.position);
+                                this.players[lmPlayerIndex].line.position.copy(this.players[lmPlayerIndex].mesh.position);
                             },
                         });
                     },
                 });
-                let playerTraj = new Trajectory(fireEvent.position, fireEvent.hAngle, fireEvent.vAngle, fireEvent.hit);
-                playerTraj.initAnimation();
+                    
+            } else if (game.events[i].type == "storm") {
+                let lmEvent = game.events[i];
+                let lmPlayerServerRef = lmEvent.player;
+                let lmPlayerIndex = -1;
+
+                for (let j=0; j<this.players.length; j++) {
+                    if (this.players[j].id == lmPlayerServerRef.id) {
+                        lmPlayerIndex = j;
+                    }
+                }
+                
+                let originalY = this.players[lmPlayerIndex].mesh.position.y;
+
+                gsap.to(this.players[lmPlayerIndex].mesh.position, {
+                    duration: 0.05,
+                    y: originalY - 0.08,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        this.players[lmPlayerIndex].line.position.copy(this.players[lmPlayerIndex].mesh.position);
+                    },
+                    onComplete: () => {
+                        this.players[lmPlayerIndex].health -= 1;
+
+                        if (this.players[lmPlayerIndex].health <= 0) {
+                            console.log("died by storm")
+                            this.playerDied(this.players[lmPlayerIndex].id)
+                        }
+
+                        gsap.to(this.players[lmPlayerIndex].mesh.position, {
+                            duration: 0.05,
+                            y: originalY,
+                            ease: "power2.inOut",
+                            onUpdate: () => {
+                                this.players[lmPlayerIndex].line.position.copy(this.players[lmPlayerIndex].mesh.position);
+                            },
+                        });
+                    },
+                });
+            }
             
-                this.trajectories.push(playerTraj);
-             },});
         }
     }
 
     playerDied(playerId) {
+        console.log("died")
         for (let i=0; i<this.players.length; i++) {
             if (this.players[i].id == playerId) {
                 this.players[i].destroy();
 
                 if (this.currentPlayer && this.currentPlayer.id == playerId) {
                     document.dispatchEvent(this.defeatedEvent);
+                    this.camera.controls.enablePan = true;
                 }
             }
         }
@@ -373,7 +554,9 @@ export default class World {
         
     }
 
-    nextTurn() {
+    nextTurn(game) {
+        //this.sync(game)
+
         for (let i=0; i<this.trajectories.length; i++) {
             this.trajectories[i].removeVisualPath();
         }

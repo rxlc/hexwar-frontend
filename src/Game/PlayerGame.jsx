@@ -3,7 +3,7 @@ import { SocketContext } from '../Contexts/Socket';
 
 import { GameContext, TimerContext, NameContext, GamePinContext, ExperienceContext } from '../Contexts/Contexts';
 
-import { Flex, Text, VStack, HStack, Button, Input } from '@chakra-ui/react'
+import { Flex, Tooltip, Text, VStack, HStack, Button, Input } from '@chakra-ui/react'
 
 export default function PlayerGame() {
   const socket = useContext(SocketContext).socket;
@@ -17,6 +17,14 @@ export default function PlayerGame() {
   const [fireSubmitted, setFireSubmitted] = useState(false);
   const [playersLeft, updatePlayersLeft] = useState(null);
   const [winner, setWinner] = useState(null);
+
+  const [percentage, setPercentage] = useState(0);
+
+  const [resultsTime, setResultsTime] = useState(false);
+  const [displayEvents, updateDisplayEvents] = useState([])
+
+  const [hAngle, setHAngle] = useState("0");
+  const [vAngle, setVAngle] = useState("45");
 
   const [alive, setAlive] = useState(true);
 
@@ -35,9 +43,15 @@ export default function PlayerGame() {
     }
   }
 
+  useEffect(() => {
+    console.log("updating percentage", percentage)
+  }, [percentage])
+
   function toggleFire() {
     if (experience.world) {
       experience.world.updateTrajectory(true);
+      experience.world.updateVAngle(Number(vAngle));
+      experience.world.updateHAngle(Number(hAngle));
       setFireToggled(!fireToggled);
     }
   }
@@ -56,28 +70,28 @@ export default function PlayerGame() {
     setFireSubmitted(!fireSubmitted)
   }
 
-  function updateHAngle(event) {
+  function updateHAngle() {
     if (experience.world) {
-      if (!isNaN(event.target.value)) {
-        if (Number(event.target.value) > 359) event.target.value = 359;
-        if (Number(event.target.value) < 0) event.target.value = 0;
-        experience.world.updateHAngle(Number(event.target.value));
+      if (!isNaN(hAngle)) {
+        if (Number(hAngle) > 359) setHAngle(359)
+        if (Number(hAngle) < 0) setHAngle(0)
+        experience.world.updateHAngle(Number(hAngle));
       } else {
         experience.world.updateHAngle(null);
-        event.target.value = "";
+        setHAngle("");
       }
     }
   }
 
-  function updateVAngle(event) {
+  function updateVAngle() {
     if (experience.world) {
-      if (!isNaN(event.target.value)) {
-        if (Number(event.target.value) > 89) event.target.value = 89;
-        if (Number(event.target.value) < 0) event.target.value = 0;
-        experience.world.updateVAngle(Number(event.target.value));
+      if (!isNaN(vAngle)) {
+        if (Number(vAngle) > 89) setVAngle(89)
+        if (Number(vAngle) < 0) setVAngle(0)
+        experience.world.updateVAngle(Number(vAngle));
       } else {
         experience.world.updateVAngle(null);
-        event.target.value = "";
+        setVAngle("");
       }
     }
   }
@@ -101,6 +115,16 @@ export default function PlayerGame() {
 
     socket.on('acknowledgeNext', (data) => {
       updateRound(data.game.round)
+      setResultsTime(false);
+
+      if (experience) {
+        for (let i=0; i<data.game.players.length; i++) {
+          if (experience.world.currentPlayer && experience.world.currentPlayer.id == data.game.players[i].id) {
+            setPercentage(data.game.players[i].landMinePercentage)
+          }
+        }
+      }
+
       updatePlayersLeft(data.game.players.filter((player) => {
         return player.health > 0
       }).length)
@@ -115,6 +139,10 @@ export default function PlayerGame() {
       if (experience) {
         experience.world.updateEvent(data.game);
         setMoveToggled(false);
+        updateDisplayEvents(data.game.displayEvents)
+        setTimeout(() => {
+          setResultsTime(true)
+        }, 5000)
       }
     })
 
@@ -159,20 +187,45 @@ export default function PlayerGame() {
         <Text fontSize={"30px"} userSelect={"none"} fontWeight={"bold"}>{timer != 0 ?  timer : null}</Text>
       </VStack> :
       null }
-  
-      <Flex alignSelf="flex-end" position="absolute" mb="20%">
-        {alive ? null : 
-          <Flex position="absolute" top="30%">
+
+      { resultsTime ? 
+      <VStack position="absolute" top="10%" left="1%" userSelect={"none"}>
+        <Text fontSize={"15px"} fontWeight={"semibold"}>Round results: </Text>
+        {displayEvents.map((event) => {
+          return <Text fontSize={"14px"} userSelect={"none"}>{event}</Text>
+        })}
+      </VStack>
+      : null }
+
+      {alive ? null : 
+          <Flex position="absolute" top="30%" flexDirection="column" textAlign={"center"}>
             <Text fontSize={"30px"} userSelect={"none"} fontWeight={"bold"}>You have been defeated</Text>
             <Text fontSize={"12px"} userSelect={"none"}>You are now spectating.</Text>
           </Flex>
         }
-
+      
+      { alive && !moveToggled && !fireToggled && !fireSubmitted && timer != 0 ?
+        <Flex alignSelf={"flex-start"} position="absolute" mt="22%" right="30%">
+              <Flex pointerEvents={"all"} flexDirection={"column"}>
+                <Text fontSize={"12px"} fontWeight={"semibold"}>PERCENTAGE OF HITTING LANDMINE: </Text>
+                {percentage < 10 ? <Text fontSize={"30px"} fontWeight={"bold"} color={"green"}>{percentage}%</Text> : null}
+                {percentage >= 10 && percentage <= 20 ? <Text fontSize={"30px"} fontWeight={"bold"} color={"orange"}>{percentage}%</Text> : null}
+                {percentage > 20 ? <Text fontSize={"30px"} fontWeight={"bold"} color={"red.700"}>{percentage}%</Text> : null}
+                <Tooltip label='Everytime the player moves to a new location, they have a chance of hitting a landmine, the chance increases when the player moves and decreases when the player does not move.' placement='bottom'>
+                  <Text fontSize="12px">(Hover for More Info)</Text>
+                </Tooltip>  
+              </Flex>
+        </Flex>
+      : null }
+  
+      <Flex alignSelf="flex-end" position="absolute" mb="20%">
         {alive && !moveToggled && !fireToggled && !fireSubmitted && timer != 0 ?
-          <HStack alignSelf="flex-end" pointerEvents={"all"}>
-            <Button onClick={toggleMove}>Move</Button>
-            <Button onClick={toggleFire}>Fire</Button>
-          </HStack>
+          <VStack alignSelf="flex-end" pointerEvents={"all"}>
+            <HStack>
+              <Button onClick={toggleMove}>Move</Button>
+              <Button onClick={toggleFire}>Fire</Button>
+            </HStack>
+          </VStack>
         : null}
 
         {alive && moveToggled && timer != 0 ?
@@ -183,8 +236,8 @@ export default function PlayerGame() {
 
         {alive && fireToggled && timer != 0 ?
             <HStack alignSelf="flex-end" pointerEvents={"all"}>
-              <Input color="white"  _placeholder={{ color: 'white' }}placeholder="Turn Angle (0-359)" onBlur={updateHAngle}/>
-              <Input color="white"_placeholder={{ color: 'white' }} placeholder="Vertical Angle (0-89)" onBlur={updateVAngle}/>
+              <Input color="white"  _placeholder={{ color: 'white' }} value={hAngle} onChange={(event) => setHAngle(event.target.value)} placeholder="Turn Angle (0-359)" onBlur={updateHAngle}/>
+              <Input color="white"_placeholder={{ color: 'white' }} value={vAngle} onChange={(event) => setVAngle(event.target.value)} placeholder="Vertical Angle (0-89)" onBlur={updateVAngle}/>
               <Button onClick={submitFire}>Submit</Button>
               <Button onClick={toggleFire}>Cancel</Button>
             </HStack>

@@ -50,8 +50,6 @@ export default class Trajectory {
             z: this.initVel * Math.cos(this.vAngle) * Math.sin(this.hAngle)
         }
 
-        console.log(this.vel)
-
         this.pos = {
             x: this.initPos.x,
             y: this.initPos.y,

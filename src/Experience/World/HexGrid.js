@@ -16,9 +16,9 @@ export default class HexGrid {
 
         this.experience = new Experience();
         this.scene = this.experience.scene;
-        //const prng = alea('seed');
-        this.noise2D = createNoise2D();
-        this.size = 18
+        const prng = alea('seed');
+        this.noise2D = createNoise2D(prng);
+        this.size = 20
         this.hexSize = 1.2
 
         this.hexagons = {}
@@ -81,8 +81,8 @@ export default class HexGrid {
                     } else {
                         terrain = this.terrains.SNOW
                     }
-
-                    this.hexagons[`${i}${j}${k}`] = new Hexagon({q: i, r: j, s: k}, this.hexSize, height, terrain)
+                    let distOrigin = Math.max(Math.abs(i), Math.abs(j), Math.abs(k));
+                    this.hexagons[`${i}${j}${k}`] = new Hexagon({q: i, r: j, s: k}, this.hexSize, height, terrain, distOrigin)
                 }
             }
         }
@@ -105,7 +105,7 @@ export default class HexGrid {
         this.hexagons = {}
 
         for (let i=0; i<hexagons.length; i++) {
-            this.hexagons[`${hexagons[i].cubePos.q}${hexagons[i].cubePos.r}${hexagons[i].cubePos.s}`] = new Hexagon(hexagons[i].cubePos, this.hexSize, hexagons[i].height, hexagons[i].terrain)
+            this.hexagons[`${hexagons[i].cubePos.q}${hexagons[i].cubePos.r}${hexagons[i].cubePos.s}`] = new Hexagon(hexagons[i].cubePos, this.hexSize, hexagons[i].height, hexagons[i].terrain, hexagons[i].distOrigin)
         }
     }
 
@@ -123,7 +123,7 @@ export default class HexGrid {
     //Reset hex to its original color
     resetColor() {
         for (let hex in this.hexagons) {
-            this.hexagons[hex].mesh.material.color.setHex(this.terrainColors[this.hexagons[hex].terrain])
+            if (this.hexagons[hex].mesh.material.color != 0x8B0000) this.hexagons[hex].mesh.material.color.setHex(this.terrainColors[this.hexagons[hex].terrain])
         }
     }
 
